@@ -1,10 +1,13 @@
-INPUT = main.c
-LIBS = -lcaca -pthread
-OPTIONS = -Wall -Wextra -Ofast -DHEIGHT=240 -DWIDTH=320
+HEIGHT=240
+WIDTH=320
 
-all:
-	cc  $(INPUT) $(OPTIONS) $(LIBS) -o a.out
-#cc $(LIBS) $(INPUT) $(OPTIONS) -o a.out
+INPUT=main.c
+OPTIONS=-Wall -Wextra -O2
+LIBS=-lcaca -lpthread
+COMPILER=gcc
+OUTPUT=a.out
 
-clean:
-	rm a.out
+all:$(INPUT)
+	$(COMPILER) -DWIDTH=$(WIDTH) -DHEIGHT=$(HEIGHT)  $(LIBS) $(OPTIONS) $(INPUT) -o $(OUTPUT)
+clean:$(OUTPUT)
+	rm $(OUTPUT)

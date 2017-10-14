@@ -1,7 +1,7 @@
 #include <caca.h>
 #include <pthread.h>
 
-#define NUM_THREADS	10
+#define NUM_THREADS	20
 
 caca_canvas_t* canvas;
 caca_display_t* display;
@@ -28,10 +28,9 @@ typedef struct CNumber{ //complex numbers
 
 typedef struct send{ //the data to send to each thread
 	int y;//imaginary
-	int threadc;
-	float zoom;
-	float cameraX;
-	float cameraY;
+	float* zoom;
+	float* cameraX;
+	float* cameraY;
 }send;
 
 uint8_t fb[3*(WIDTH*HEIGHT)]; //the frame buffer
@@ -66,16 +65,16 @@ void init_caca(){//init libcaca
 	screen_height=caca_get_canvas_height(canvas);
 }
 
-#define LINESPERTHREAD 24
+#define LINESPERTHREAD 50
 void *lineF(void *inputv){
 	send* input=inputv;
 	int max;
 	CNumber mathin,mathout,mathplace;
 	for(int lines=0;lines<LINESPERTHREAD;lines++)
-		if(lines+input->y<WIDTH)
+		if(lines+input->y<HEIGHT)
 			for(int loop=0;loop<WIDTH;loop++){
-				mathplace.r=loop*((float)(input->zoom)/WIDTH)-input->zoom/2-input->cameraX,
-					mathplace.i=(input->y+lines)*((float)(input->zoom)/WIDTH)-input->zoom/2-input->cameraY;
+				mathplace.r=loop*((float)(*input->zoom)/WIDTH)-(*input->zoom)/2-(*input->cameraX),
+					mathplace.i=(input->y+lines)*((float)(*input->zoom)/WIDTH)-(*input->zoom)/2-(*input->cameraY);
 				mathin.i=0,mathin.r=0,max=0;
 				pixel(loop,input->y+lines,0);
 				while(max++<maxfun){
@@ -98,51 +97,54 @@ void *lineF(void *inputv){
 	return 0;
 }
 
-void wfb(){
-	caca_get_event(display,CACA_EVENT_RESIZE|CACA_EVENT_QUIT,&event,1);
-		if(caca_get_event_type(&event)==CACA_EVENT_RESIZE)
-			screen_width=caca_get_event_resize_width(&event),
+unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
+	caca_get_event(display,CACA_EVENT_KEY_PRESS|CACA_EVENT_RESIZE|CACA_EVENT_QUIT,&event,1);
+	if(caca_get_event_type(&event)==CACA_EVENT_RESIZE)
+		screen_width=caca_get_event_resize_width(&event),
 			screen_height=caca_get_event_resize_height(&event);
+	else if(caca_get_event_type(&event)==CACA_EVENT_QUIT)
+		return 1;
+	else if(caca_get_event_key_ch(&event)=='q')
+		return 1;//quit
 	caca_dither_bitmap(canvas,0,0,screen_width,screen_height,dither,&fb);
 	caca_refresh_display(display);
 	caca_free_dither(dither);
 	dither=caca_create_dither(	bpp,
-					WIDTH,
-					HEIGHT,
-					depth * WIDTH,
-					rmask,
-					gmask,
-					bmask,
-					amask	);
-
+			WIDTH,
+			HEIGHT,
+			depth * WIDTH,
+			rmask,
+			gmask,
+			bmask,
+			amask	);
+	return 0;
 }
 
 int main(){
 	init_caca();
 	float zoom=6,cameraX,cameraY;
-#ifdef MANUAL
-#else
 	cameraX=0.71339;
 	cameraY=-0.47385;
-#endif
 	send messages[NUM_THREADS];
+	for (int thread=0;thread<NUM_THREADS;thread++)
+		messages[thread].zoom=&zoom,messages[thread].cameraX=&cameraX,messages[thread].cameraY=&cameraY;
 	while(1){
-		for(int y=0;y<HEIGHT-4;y+=NUM_THREADS*LINESPERTHREAD){
+		for(int y=0;y<HEIGHT;y+=NUM_THREADS*LINESPERTHREAD){
 			for (int thread=0;thread<NUM_THREADS;thread++){
-				messages[thread].zoom=zoom,messages[thread].cameraX=cameraX,messages[thread].cameraY=cameraY;
 				messages[thread].y=y+thread*LINESPERTHREAD;
 				pthread_create(&threads[thread], NULL, &lineF,&messages[thread]);
 			}
-			for(int temp=0;temp<NUM_THREADS;temp++)
-				pthread_join(threads[temp],NULL );
+			for (int thread=0;thread<NUM_THREADS;thread++)
+				pthread_join(threads[thread],NULL );
 		}
-#ifdef MANUAL
-#else
 		zoom/=1.005;
-#endif
-		wfb();
-#ifndef MANUAL
+
+		if(wfb()==1)
+			break;
+
 		if(zoom<0.000002)break;
-#endif
 	}
+	caca_free_dither(dither);
+	caca_free_canvas(canvas);
+	caca_free_display(display);
 }
