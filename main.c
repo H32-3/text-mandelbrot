@@ -1,13 +1,13 @@
-#include <stdio.h>	//this is for the spritnf function (like printf but on a string (pointer))
-#include <unistd.h>	//for sleep()
 #include <caca.h>
 #include <pthread.h>
-#define NUM_THREADS	5
+
+#define NUM_THREADS	10
 
 caca_canvas_t* canvas;
 caca_display_t* display;
 caca_dither_t* dither;
 caca_event_t event;
+
 int screen_width;
 int screen_height;
 
@@ -21,11 +21,12 @@ int screen_height;
 
 pthread_t threads[NUM_THREADS];
 
-typedef struct CNumber{
+typedef struct CNumber{ //complex numbers
 	float r;//real
 	float i;//imaginary
 }CNumber;
-typedef struct send{
+
+typedef struct send{ //the data to send to each thread
 	int y;//imaginary
 	int threadc;
 	float zoom;
@@ -33,55 +34,41 @@ typedef struct send{
 	float cameraY;
 }send;
 
-uint8_t fb[3*(WIDTH*HEIGHT)];
+uint8_t fb[3*(WIDTH*HEIGHT)]; //the frame buffer
 
-/*i could make this a function but then multiple threads would be calling the 
- * samefunction and it would slow down a litle bit */
-#define pixel(x,y,val) \
+#define pixel(x,y,val) /*draw a pixel on the frame buffer*/\
 	fb[((x)*3+0)+((y)*WIDTH)*3]=((val)&0x0000ff)>>0 , \
 	fb[((x)*3+1)+((y)*WIDTH)*3]=((val)&0x00ff00)>>8 , \
 	fb[((x)*3+2)+((y)*WIDTH)*3]=((val)&0xff0000)>>16; \
 
-#define brighten(x,y,factor) \
-	fb[(x*3+0)+(y*WIDTH)*3]*=factor , \
-	fb[(x*3+1)+(y*WIDTH)*3]*=factor , \
-	fb[(x*3+2)+(y*WIDTH)*3]*=factor ; \
+int maxfun=100; 
 
-int maxfun=10000; 
-
-CNumber add(CNumber a,CNumber b){
+CNumber add(CNumber a,CNumber b){ //add two complex numbers
 	CNumber c;
 	c.r=a.r+b.r;
 	c.i=a.i+b.i;
 	return(c);
 }
 
-CNumber multiply(CNumber a,CNumber b){
+CNumber multiply(CNumber a,CNumber b){//multiply two complex numbers
 	CNumber c;
 	c.r=a.r*b.r-a.i*b.i;
 	c.i=a.r*b.i+a.i*b.r;
 	return(c);
 }
-void init_caca(){
+
+#define abs(in) (((in)<0)?in*-1.0:in)
+
+void init_caca(){//init libcaca
 	canvas=caca_create_canvas(0,0);
 	display=caca_create_display(canvas);
 	screen_width=caca_get_canvas_width(canvas);
 	screen_height=caca_get_canvas_height(canvas);
-	dither=caca_create_dither(	bpp,
-					WIDTH,
-					HEIGHT,
-					depth * WIDTH,
-					rmask,
-					gmask,
-					bmask,
-					amask	);	return;
 }
-float absf(float in){
-	if(in < 0)	in*=(-1.0);
-	return(in);
-}
+
 #define LINESPERTHREAD 24
-void lineF(send *input){
+void *lineF(void *inputv){
+	send* input=inputv;
 	int max;
 	CNumber mathin,mathout,mathplace;
 	for(int lines=0;lines<LINESPERTHREAD;lines++)
@@ -93,22 +80,22 @@ void lineF(send *input){
 				pixel(loop,input->y+lines,0);
 				while(max++<maxfun){
 					mathout=add(multiply(mathin,mathin),mathplace); 
-					if( (absf(mathout.r)<.00000001) && (absf(mathout.i)<.00000001) ){
+					if( (abs(mathout.r)<.00000001) && (abs(mathout.i)<.00000001) ){
 						pixel(loop,input->y+lines,0);
 						break;
-					}else if((absf(mathout.r)>100000.0)||(absf(mathout.i)>100000.0)){ 
+					}else if((abs(mathout.r)>100000.0)||(abs(mathout.i)>100000.0)){ 
 						pixel(loop,input->y+lines,60-max);
 						break;
 					}else{ 
-						if( (absf(mathout.r)==absf(mathin.r)) && (absf(mathout.i)==absf(mathin.i)) ){
+						if( (abs(mathout.r)==abs(mathin.r)) && (abs(mathout.i)==abs(mathin.i)) ){
 							pixel(loop,input->y+lines,0);
 							break;
 						}
 						mathin=mathout;
 					}
 				}
-//				brighten(loop,input->y+lines,1);
 			}
+	return 0;
 }
 
 void wfb(){
@@ -131,7 +118,6 @@ void wfb(){
 }
 
 int main(){
-	int potition=0;
 	init_caca();
 	float zoom=6,cameraX,cameraY;
 #ifdef MANUAL
@@ -158,6 +144,5 @@ int main(){
 #ifndef MANUAL
 		if(zoom<0.000002)break;
 #endif
-		potition++;
 	}
 }
