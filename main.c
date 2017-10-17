@@ -1,3 +1,5 @@
+#include <stdio.h> //puts()
+#include <string.h> //strcmp()
 #include <caca.h>
 #include <pthread.h>
 
@@ -10,6 +12,8 @@ caca_event_t event;
 
 int screen_width;
 int screen_height;
+
+float zoom=6,cameraX,cameraY;
 
 #define bpp 24
 #define depth 3
@@ -32,6 +36,8 @@ typedef struct send{ //the data to send to each thread
 	float* cameraX;
 	float* cameraY;
 }send;
+
+int autozoom=3;
 
 uint8_t fb[3*(WIDTH*HEIGHT)]; //the frame buffer
 
@@ -99,13 +105,33 @@ void *lineF(void *inputv){
 
 unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
 	caca_get_event(display,CACA_EVENT_KEY_PRESS|CACA_EVENT_RESIZE|CACA_EVENT_QUIT,&event,1);
-	if(caca_get_event_type(&event)==CACA_EVENT_RESIZE)
-		screen_width=caca_get_event_resize_width(&event),
-			screen_height=caca_get_event_resize_height(&event);
-	else if(caca_get_event_type(&event)==CACA_EVENT_QUIT)
+	if(caca_get_event_type(&event)==CACA_EVENT_RESIZE){
+		screen_width=caca_get_event_resize_width(&event);
+		screen_height=caca_get_event_resize_height(&event);
+		return 2;
+	}else if(caca_get_event_type(&event)==CACA_EVENT_QUIT){
 		return 1;
-	else if(caca_get_event_key_ch(&event)=='q')
-		return 1;//quit
+	}else if(caca_get_event_key_ch(&event)=='q'){
+		return 1;
+	}else if(caca_get_event_key_ch(&event)=='+'){
+		zoom/=1.05;
+		return 2;
+	}else if(caca_get_event_key_ch(&event)=='-'){
+		zoom*=1.05;
+		return 2;
+	}else if(caca_get_event_key_ch(&event)=='h'){
+		cameraX+=.05*zoom;
+		return 2;
+	}else if(caca_get_event_key_ch(&event)=='l'){
+		cameraX-=.05*zoom;
+		return 2;
+	}else if(caca_get_event_key_ch(&event)=='k'){
+		cameraY+=.05*zoom;
+		return 2;
+	}else if(caca_get_event_key_ch(&event)=='j'){
+		cameraY-=.05*zoom;
+		return 2;
+	}
 	caca_dither_bitmap(canvas,0,0,screen_width,screen_height,dither,&fb);
 	caca_refresh_display(display);
 	caca_free_dither(dither);
@@ -118,11 +144,18 @@ unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
 			bmask,
 			amask	);
 	return 0;
-}
+}//return value:  0) no event 1)quit the program 2)redraw if manual
 
-int main(){
+int main(int argc,char* argd[]){
+	if(argc!=2)
+		return puts("you need to specify only one option \n --manual , -m	for manual control\n --autozoom , -a for automatic zoom\n");
+	if(strcmp(argd[1],"-a")==0||strcmp(argd[1],"--autozoom")==0)
+		autozoom=1;
+	else if(strcmp(argd[1],"-m")==0||strcmp(argd[1],"--manual")==0)
+		autozoom=0;
+	else
+		return puts("you need to specify only one option \n --manual , -m	for manual control\n --autozoom , -a for automatic zoom\n");	
 	init_caca();
-	float zoom=6,cameraX,cameraY;
 	cameraX=0.71339;
 	cameraY=-0.47385;
 	send messages[NUM_THREADS];
@@ -137,12 +170,30 @@ int main(){
 			for (int thread=0;thread<NUM_THREADS;thread++)
 				pthread_join(threads[thread],NULL );
 		}
-		zoom/=1.005;
+		if(autozoom){
+			zoom/=1.009;
+			if(wfb()==1)
+				break;
+		}else{
+			int whatdo=1;
+			while(whatdo==1)
+				switch(wfb()){
+					case 0:
+						whatdo=1;//dont render new image
+						usleep(30000);
+						break;
+					case 1:
+						whatdo=2;//exit
+						break;
+					case 2:
+						whatdo=3;//we got a key, render a new image
+						break;
+				}
+			if(whatdo==2)
+				break;
+		}
 
-		if(wfb()==1)
-			break;
-
-		if(zoom<0.000002)break;
+		if(zoom<0.000002&&autozoom)break;
 	}
 	caca_free_dither(dither);
 	caca_free_canvas(canvas);
