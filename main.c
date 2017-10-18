@@ -113,24 +113,26 @@ unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
 		return 1;
 	}else if(caca_get_event_key_ch(&event)=='q'){
 		return 1;
-	}else if(caca_get_event_key_ch(&event)=='+'){
-		zoom/=1.05;
-		return 2;
-	}else if(caca_get_event_key_ch(&event)=='-'){
-		zoom*=1.05;
-		return 2;
-	}else if(caca_get_event_key_ch(&event)=='h'){
-		cameraX+=.05*zoom;
-		return 2;
-	}else if(caca_get_event_key_ch(&event)=='l'){
-		cameraX-=.05*zoom;
-		return 2;
-	}else if(caca_get_event_key_ch(&event)=='k'){
-		cameraY+=.05*zoom;
-		return 2;
-	}else if(caca_get_event_key_ch(&event)=='j'){
-		cameraY-=.05*zoom;
-		return 2;
+	}else if(!autozoom){
+		if(caca_get_event_key_ch(&event)=='+'){
+			zoom/=1.05;
+			return 2;
+		}else if(caca_get_event_key_ch(&event)=='-'){
+			zoom*=1.05;
+			return 2;
+		}else if(caca_get_event_key_ch(&event)=='h'){
+			cameraX+=.05*zoom;
+			return 2;
+		}else if(caca_get_event_key_ch(&event)=='l'){
+			cameraX-=.05*zoom;
+			return 2;
+		}else if(caca_get_event_key_ch(&event)=='k'){
+			cameraY+=.05*zoom;
+			return 2;
+		}else if(caca_get_event_key_ch(&event)=='j'){
+			cameraY-=.05*zoom;
+			return 2;
+		}
 	}
 	caca_dither_bitmap(canvas,0,0,screen_width,screen_height,dither,&fb);
 	caca_refresh_display(display);
