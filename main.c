@@ -141,6 +141,9 @@ unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
 		caca_printf(canvas,0,0,"FPS:%02.01f",fps);
 	else 
 		caca_put_str(canvas,0,0,"FPS:--.-");
+	caca_printf(canvas,0,1,"CameraX: %f",cameraX);
+	caca_printf(canvas,0,2,"CameraY: %f",cameraY);
+	caca_printf(canvas,0,3,"zoom	 %f",zoom);
 	caca_refresh_display(display);
 	caca_free_dither(dither);
 	dither=caca_create_dither(	bpp,
@@ -204,7 +207,12 @@ int main(int argc,char* argd[]){
 				break;
 		}
 
-		if(zoom<0.000002&&autozoom)break;
+		if(zoom<0.000002&&autozoom){
+loop:			if(wfb()!=2){
+				usleep(60000);
+				goto loop;
+			}
+		}
 		if(autozoom)
 			fps=1.0/((float)(clock()-clockS)/CLOCKS_PER_SEC);
 	}
