@@ -1,5 +1,6 @@
 #include <stdio.h> //puts()
 #include <string.h> //strcmp()
+#include <time.h>
 #include <caca.h>
 #include <pthread.h>
 
@@ -14,6 +15,7 @@ int screen_width;
 int screen_height;
 
 float zoom=6,cameraX,cameraY;
+float fps=0;
 
 #define bpp 24
 #define depth 3
@@ -135,6 +137,10 @@ unsigned char wfb(){//also handle events like CACA_EVENT_QUIT
 		}
 	}
 	caca_dither_bitmap(canvas,0,0,screen_width,screen_height,dither,&fb);
+	if(autozoom)
+		caca_printf(canvas,0,0,"FPS:%02.01f",fps);
+	else 
+		caca_put_str(canvas,0,0,"FPS:--.-");
 	caca_refresh_display(display);
 	caca_free_dither(dither);
 	dither=caca_create_dither(	bpp,
@@ -163,7 +169,10 @@ int main(int argc,char* argd[]){
 	send messages[NUM_THREADS];
 	for (int thread=0;thread<NUM_THREADS;thread++)
 		messages[thread].zoom=&zoom,messages[thread].cameraX=&cameraX,messages[thread].cameraY=&cameraY;
+	clock_t clockS;
 	while(1){
+		if(autozoom)
+			clockS=clock();
 		for(int y=0;y<HEIGHT;y+=NUM_THREADS*LINESPERTHREAD){
 			for (int thread=0;thread<NUM_THREADS;thread++){
 				messages[thread].y=y+thread*LINESPERTHREAD;
@@ -196,6 +205,8 @@ int main(int argc,char* argd[]){
 		}
 
 		if(zoom<0.000002&&autozoom)break;
+		if(autozoom)
+			fps=1.0/((float)(clock()-clockS)/CLOCKS_PER_SEC);
 	}
 	caca_free_dither(dither);
 	caca_free_canvas(canvas);
